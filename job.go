@@ -1,4 +1,4 @@
-package batch
+package piper
 
 // job is an internal struct which wraps the dataIF interface with metadata about the job
 type job struct {
