@@ -29,33 +29,33 @@ func newExec(startFn, stopFn func(context.Context)) *exec {
 }
 
 // start triggers the startup sequence by calling startFn
-func (ss *exec) start(ctx context.Context) {
+func (e *exec) start(ctx context.Context) {
 	// Lock the mutex to prevent race conditions with Stop
-	ss.execMutex.Lock()
-	defer ss.execMutex.Unlock()
+	e.execMutex.Lock()
+	defer e.execMutex.Unlock()
 
 	// Do the startup sequence once until the shutdown sequence resets
-	ss.startOnce.Do(func() {
+	e.startOnce.Do(func() {
 		defer func() {
 			// reset stopOnce so the shutdown sequence can happen again
-			ss.stopOnce = sync.Once{}
+			e.stopOnce = sync.Once{}
 		}()
-		ss.startFn(ctx)
+		e.startFn(ctx)
 	})
 }
 
 // stop triggers the shutdown sequence by calling stopFn
-func (ss *exec) stop(ctx context.Context) {
+func (e *exec) stop(ctx context.Context) {
 	// Lock the mutex to prevent race conditions with Start
-	ss.execMutex.Lock()
-	defer ss.execMutex.Unlock()
+	e.execMutex.Lock()
+	defer e.execMutex.Unlock()
 
 	// Do the shutdown sequence once until the startup sequence resets
-	ss.stopOnce.Do(func() {
+	e.stopOnce.Do(func() {
 		defer func() {
 			// reset startOnce so the startup sequence can happen again
-			ss.startOnce = sync.Once{}
+			e.startOnce = sync.Once{}
 		}()
-		ss.stopFn(ctx)
+		e.stopFn(ctx)
 	})
 }
