@@ -15,7 +15,8 @@ func TestPipeline_NewPipeline(t *testing.T) {
 	proc2 := NewProcess("TestProcess2", &te)
 
 	// Test 0 Processes
-	p0, err := NewPipeline("TestPipeline")
+	var processes []*Process = make([]*Process, 0)
+	p0, err := NewPipeline("TestPipeline", processes)
 	if p0 != nil {
 		t.Fatal("NewPipeline expected nil but not")
 	}
@@ -24,7 +25,8 @@ func TestPipeline_NewPipeline(t *testing.T) {
 	}
 
 	// Test 1 Process
-	p1, err := NewPipeline("TestPipeline", proc1)
+	processes = append(processes, proc1)
+	p1, err := NewPipeline("TestPipeline", processes)
 	if p1 != nil {
 		t.Fatal("NewPipeline expected nil but not")
 	}
@@ -33,7 +35,8 @@ func TestPipeline_NewPipeline(t *testing.T) {
 	}
 
 	// Test 2 Processes
-	p2, err := NewPipeline("TestPipeline", proc1, proc2)
+	processes = append(processes, proc2)
+	p2, err := NewPipeline("TestPipeline", processes)
 	if p2 == nil {
 		t.Fatal("NewPipeline returned nil")
 	}
@@ -47,7 +50,8 @@ func TestPipeline_StartStop(t *testing.T) {
 	proc1 := NewProcess("TestProcess1", &te)
 	proc2 := NewProcess("TestProcess2", &te)
 
-	p, _ := NewPipeline("TestPipeline", proc1, proc2)
+	processes := []*Process{proc1, proc2}
+	p, _ := NewPipeline("TestPipeline", processes)
 	p.Start(context.TODO())
 	p.Stop(context.TODO())
 }
@@ -69,7 +73,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Pipelines", processes...)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Pipelines", processes)
 	p.Start(context.TODO())
 	defer p.Stop(context.TODO())
 
@@ -104,7 +108,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Pipelines", processes...)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Pipelines", processes)
 	p.Start(context.TODO())
 	defer p.Stop(context.TODO())
 

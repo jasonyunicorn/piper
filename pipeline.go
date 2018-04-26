@@ -16,7 +16,7 @@ type Pipeline struct {
 }
 
 // NewPipeline creates a pointer to a Pipeline
-func NewPipeline(name string, processes ...*Process) (*Pipeline, error) {
+func NewPipeline(name string, processes []*Process) (*Pipeline, error) {
 	if len(processes) < 2 {
 		return nil, fmt.Errorf("Pipelines require at least 2 processes, got [%d] process(es)", len(processes))
 	}
