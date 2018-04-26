@@ -5,11 +5,11 @@ import (
 )
 
 // BatchExecFn is a method signature which defines the expectations of a BatchExecutable Execute function
-type BatchExecFn func(context.Context, []DataIF) map[string]error
+type BatchExecFn func(context.Context, []DataIF) (map[string]error, error)
 
 // BatchExecutable is an interface which exposes the Execute method, which is the user-defined batch execution call
 type BatchExecutable interface {
-	Execute(context.Context, []DataIF) map[string]error
+	Execute(context.Context, []DataIF) (map[string]error, error)
 }
 
 // batch is a struct which wraps all the data for a batch job along with the batch job meta information
@@ -42,11 +42,14 @@ func (b *batch) add(jobs ...*job) {
 }
 
 // execute invokes the user-defined batch executable callback function and updates metadata about the batch job
-func (b *batch) execute(ctx context.Context, fn BatchExecFn) {
+func (b *batch) execute(ctx context.Context, fn BatchExecFn) error {
 	size := b.size()
 	if size > 0 {
 		// Execute the batch function call and update batch metadata
-		errorMap := fn(ctx, b.datum)
+		errorMap, err := fn(ctx, b.datum)
+		if err != nil {
+			return err
+		}
 		for k, v := range errorMap {
 			if v == nil {
 				b.updateSuccess(k, true)
@@ -56,6 +59,8 @@ func (b *batch) execute(ctx context.Context, fn BatchExecFn) {
 			}
 		}
 	}
+
+	return nil
 }
 
 // updateSuccess updates the status of the successMap for a given job ID
