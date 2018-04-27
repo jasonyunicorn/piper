@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -52,8 +53,14 @@ func TestPipeline_StartStop(t *testing.T) {
 
 	processes := []*Process{proc1, proc2}
 	p, _ := NewPipeline("TestPipeline", processes)
-	p.Start(context.TODO())
-	p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
+
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
 }
 
 func TestPipeline_ProcessData1(t *testing.T) {
@@ -74,14 +81,20 @@ func TestPipeline_ProcessData1(t *testing.T) {
 		)
 	}
 	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Pipelines", processes)
-	p.Start(context.TODO())
-	defer p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
 
 	for _, data := range datum {
 		p.ProcessData(data)
 	}
 
 	time.Sleep(10 * time.Second)
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
+
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	got := int(gotSuccessCount) + int(gotFailureCount)
@@ -109,14 +122,20 @@ func TestPipeline_ProcessData2(t *testing.T) {
 		)
 	}
 	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Pipelines", processes)
-	p.Start(context.TODO())
-	defer p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
 
 	for _, data := range datum {
 		p.ProcessData(data)
 	}
 
 	time.Sleep(10 * time.Second)
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
+
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	got := int(gotSuccessCount) + int(gotFailureCount)
