@@ -4,6 +4,7 @@ import (
 	"context"
 	"golang.org/x/time/rate"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -150,8 +151,14 @@ func TestProcess_PushOnFailureFns(t *testing.T) {
 func TestProcess_StartStop(t *testing.T) {
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess - Start/Stop", &te)
-	p.Start(context.TODO())
-	p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
+
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
 }
 
 func TestProcess_ProcessData1(t *testing.T) {
@@ -166,14 +173,20 @@ func TestProcess_ProcessData1(t *testing.T) {
 		ProcessWithMaxRetries(0),
 		ProcessWithBatchTimeout(500*time.Millisecond),
 	)
-	p.Start(context.TODO())
-	defer p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
 
 	for _, data := range datum {
 		p.ProcessData(data)
 	}
 
 	time.Sleep(3 * time.Second)
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
+
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	got := int(gotSuccessCount) + int(gotFailureCount)
@@ -196,14 +209,20 @@ func TestProcess_ProcessData2(t *testing.T) {
 		ProcessWithMaxRetries(retries),
 		ProcessWithBatchTimeout(500*time.Millisecond),
 	)
-	p.Start(context.TODO())
-	defer p.Stop(context.TODO())
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
 
 	for _, data := range datum {
 		p.ProcessData(data)
 	}
 
 	time.Sleep(6 * time.Second)
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
+
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	if gotSuccessCount != 0 {
 		t.Fatalf("ProccessData successCount invalid result: want [%d], got [%d]", 0, gotSuccessCount)
