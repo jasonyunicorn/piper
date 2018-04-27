@@ -11,7 +11,7 @@ import (
 type testBatchExecEvensFailFn struct {
 }
 
-func (fn *testBatchExecEvensFailFn) Execute(ctx context.Context, datum []DataIF) map[string]error {
+func (fn *testBatchExecEvensFailFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
 	errorsMap := make(map[string]error)
 	for _, data := range datum {
 		td := data.(*testData)
@@ -22,31 +22,31 @@ func (fn *testBatchExecEvensFailFn) Execute(ctx context.Context, datum []DataIF)
 		}
 	}
 
-	return errorsMap
+	return errorsMap, nil
 }
 
 type testBatchExecAllSucceedFn struct {
 }
 
-func (fn *testBatchExecAllSucceedFn) Execute(ctx context.Context, datum []DataIF) map[string]error {
+func (fn *testBatchExecAllSucceedFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
 	errorsMap := make(map[string]error)
 	for _, data := range datum {
 		td := data.(*testData)
 		errorsMap[td.id] = nil
 	}
-	return errorsMap
+	return errorsMap, nil
 }
 
 type testBatchExecAllFailFn struct {
 }
 
-func (fn *testBatchExecAllFailFn) Execute(ctx context.Context, datum []DataIF) map[string]error {
+func (fn *testBatchExecAllFailFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
 	errorsMap := make(map[string]error)
 	for _, data := range datum {
 		td := data.(*testData)
 		errorsMap[td.id] = fmt.Errorf("Error#%d", td.value)
 	}
-	return errorsMap
+	return errorsMap, nil
 }
 
 func newTestJobs(numJobs int) []*job {
