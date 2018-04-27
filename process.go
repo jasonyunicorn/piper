@@ -51,12 +51,12 @@ type Process struct {
 }
 
 // newDefaultProcess creates a pointer to a Process which contains default fields
-func newDefaultProcess(name string, batchFn BatchExecutable) *Process {
+func newDefaultProcess(name string, batchExec BatchExecutable) *Process {
 	onSuccessFns := make([]func(DataIF), 0)
 	onFailureFns := make([]func(DataIF), 0)
 	return &Process{
 		name:         name,
-		batchExec:    batchFn,
+		batchExec:    batchExec,
 		concurrency:  DEFAULT_CONCURRENCY,
 		queueDepth:   DEFAULT_QUEUE_DEPTH,
 		batchTimeout: DEFAULT_BATCH_TIMEOUT,
@@ -69,8 +69,8 @@ func newDefaultProcess(name string, batchFn BatchExecutable) *Process {
 }
 
 // NewProcess creates a pointer to a Process
-func NewProcess(name string, exec BatchExecutable, fns ...ProcessOptionFn) *Process {
-	p := newDefaultProcess(name, exec)
+func NewProcess(name string, batchExec BatchExecutable, fns ...ProcessOptionFn) *Process {
+	p := newDefaultProcess(name, batchExec)
 	p.exec = newExec(p.startFn, p.stopFn)
 
 	// Apply functional options
