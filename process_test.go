@@ -2,28 +2,31 @@ package piper
 
 import (
 	"context"
-	"golang.org/x/time/rate"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type testProcess struct {
 	successCount *uint64
 	failureCount *uint64
-	onSuccessFn  func(DataIF)
-	onFailureFn  func(DataIF)
+	onSuccessFn  ProcessFn
+	onFailureFn  ProcessFn
 }
 
 func newTestProcess() *testProcess {
 	var successCount, failureCount uint64 = 0, 0
-	onSuccessFn := func(d DataIF) {
+	onSuccessFn := func(d DataIF) []DataIF {
 		atomic.AddUint64(&successCount, 1)
+		return []DataIF{d}
 	}
-	onFailureFn := func(d DataIF) {
+	onFailureFn := func(d DataIF) []DataIF {
 		atomic.AddUint64(&failureCount, 1)
+		return []DataIF{d}
 	}
 
 	return &testProcess{
@@ -103,9 +106,9 @@ func TestProcess_ProcessWithRateLimit(t *testing.T) {
 }
 
 func TestProcess_ProcessWithOnSuccessFns(t *testing.T) {
-	fn1 := func(d DataIF) {}
-	fn2 := func(d DataIF) {}
-	fns := []func(DataIF){fn1, fn2}
+	fn1 := func(d DataIF) []DataIF { return []DataIF{d} }
+	fn2 := func(d DataIF) []DataIF { return []DataIF{d} }
+	fns := []ProcessFn{fn1, fn2}
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess", &te, ProcessWithOnSuccessFns(fns...))
 	if len(p.onSuccessFns) != len(fns) {
@@ -114,9 +117,9 @@ func TestProcess_ProcessWithOnSuccessFns(t *testing.T) {
 }
 
 func TestProcess_ProcessWithOnFailureFns(t *testing.T) {
-	fn1 := func(d DataIF) {}
-	fn2 := func(d DataIF) {}
-	fns := []func(DataIF){fn1, fn2}
+	fn1 := func(d DataIF) []DataIF { return []DataIF{} }
+	fn2 := func(d DataIF) []DataIF { return []DataIF{} }
+	fns := []ProcessFn{fn1, fn2}
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess", &te, ProcessWithOnFailureFns(fns...))
 	if len(p.onFailureFns) != len(fns) {
@@ -125,9 +128,9 @@ func TestProcess_ProcessWithOnFailureFns(t *testing.T) {
 }
 
 func TestProcess_PushOnSuccessFns(t *testing.T) {
-	fn1 := func(d DataIF) {}
-	fn2 := func(d DataIF) {}
-	fns := []func(DataIF){fn1, fn2}
+	fn1 := func(d DataIF) []DataIF { return []DataIF{} }
+	fn2 := func(d DataIF) []DataIF { return []DataIF{} }
+	fns := []ProcessFn{fn1, fn2}
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess", &te, ProcessWithOnSuccessFns(fns[0]))
 	p.pushOnSuccessFns(fns[1])
@@ -137,9 +140,9 @@ func TestProcess_PushOnSuccessFns(t *testing.T) {
 }
 
 func TestProcess_PushOnFailureFns(t *testing.T) {
-	fn1 := func(d DataIF) {}
-	fn2 := func(d DataIF) {}
-	fns := []func(DataIF){fn1, fn2}
+	fn1 := func(d DataIF) []DataIF { return []DataIF{} }
+	fn2 := func(d DataIF) []DataIF { return []DataIF{} }
+	fns := []ProcessFn{fn1, fn2}
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess", &te, ProcessWithOnFailureFns(fns[0]))
 	p.pushOnFailureFns(fns[1])

@@ -59,7 +59,12 @@ func (p *Pipeline) startFn(ctx context.Context, wg *sync.WaitGroup) {
 	// as an OnSuccessFn for the previous Process
 	for i, process := range p.processes {
 		if i > 0 {
-			p.processes[i-1].pushOnSuccessFns(process.ProcessData)
+			func(processPtr *Process) {
+				p.processes[i-1].pushOnSuccessFns(func(data DataIF) []DataIF {
+					processPtr.ProcessData(data)
+					return []DataIF{}
+				})
+			}(process)
 		}
 	}
 

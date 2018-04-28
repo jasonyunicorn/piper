@@ -80,7 +80,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Pipelines", processes)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Processes", processes)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go p.Start(context.TODO(), wg)
@@ -121,7 +121,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Pipelines", processes)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 4 Processes", processes)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go p.Start(context.TODO(), wg)

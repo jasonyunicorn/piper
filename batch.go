@@ -35,9 +35,11 @@ func (b *batch) size() int {
 
 // add appends jobs to the batch
 func (b *batch) add(jobs ...*job) {
-	for _, job := range jobs {
-		b.jobsMap[job.id] = job
-		b.datum = append(b.datum, job.data)
+	for _, j := range jobs {
+		func(jobPtr *job) {
+			b.jobsMap[jobPtr.id] = jobPtr
+			b.datum = append(b.datum, jobPtr.data)
+		}(j)
 	}
 }
 

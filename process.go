@@ -28,6 +28,8 @@ const (
 	DEFAULT_RATE_LIMIT rate.Limit = rate.Inf
 )
 
+type ProcessFn func(DataIF) []DataIF
+
 // Process is an object used for managing the execution of batch jobs amongst multiple concurrent workers
 type Process struct {
 	// required
@@ -35,14 +37,14 @@ type Process struct {
 	batchExec BatchExecutable // batch function to call on batch jobs
 
 	// configurable
-	concurrency  int            // number of concurrent workers processing batch jobs
-	queueDepth   int            // maximum number of items to queue
-	batchTimeout time.Duration  // maximum duration to wait to fill a batch before processing what has been batched
-	maxBatchSize int            // maximum number of items to process in a batch
-	maxRetries   int            // maximum number of retries to attempt to before sending to failover queue
-	rateLimit    rate.Limit     // maximum allowed frequency of batch function calls
-	onSuccessFns []func(DataIF) // callback function that gets called when a job has been executed successfully
-	onFailureFns []func(DataIF) // callback function that gets called when a job has exceeded the maximum number of retries
+	concurrency  int           // number of concurrent workers processing batch jobs
+	queueDepth   int           // maximum number of items to queue
+	batchTimeout time.Duration // maximum duration to wait to fill a batch before processing what has been batched
+	maxBatchSize int           // maximum number of items to process in a batch
+	maxRetries   int           // maximum number of retries to attempt to before sending to failover queue
+	rateLimit    rate.Limit    // maximum allowed frequency of batch function calls
+	onSuccessFns []ProcessFn   // callback function that gets called when a job has been executed successfully
+	onFailureFns []ProcessFn   // callback function that gets called when a job has exceeded the maximum number of retries
 
 	// internal
 	exec    executable    // mechanism for starting / stopping
@@ -53,8 +55,8 @@ type Process struct {
 
 // newDefaultProcess creates a pointer to a Process which contains default fields
 func newDefaultProcess(name string, batchExec BatchExecutable) *Process {
-	onSuccessFns := make([]func(DataIF), 0)
-	onFailureFns := make([]func(DataIF), 0)
+	onSuccessFns := make([]ProcessFn, 0)
+	onFailureFns := make([]ProcessFn, 0)
 	return &Process{
 		name:         name,
 		batchExec:    batchExec,
@@ -128,27 +130,35 @@ func ProcessWithRateLimit(limit rate.Limit) ProcessOptionFn {
 }
 
 // ProcessWithOnSuccessFn is an option function for configuring the Process's onSuccessFn
-func ProcessWithOnSuccessFns(fns ...func(DataIF)) ProcessOptionFn {
+func ProcessWithOnSuccessFns(fns ...ProcessFn) ProcessOptionFn {
 	return func(p *Process) {
 		p.onSuccessFns = fns
 	}
 }
 
 // ProcessWithOnFailureFn is an option function for configuring the Process's onFailureFn
-func ProcessWithOnFailureFns(fns ...func(DataIF)) ProcessOptionFn {
+func ProcessWithOnFailureFns(fns ...ProcessFn) ProcessOptionFn {
 	return func(p *Process) {
 		p.onFailureFns = fns
 	}
 }
 
 // pushOnSuccessFn is a method used to add additional OnSuccessFn functions to a Process
-func (p *Process) pushOnSuccessFns(fns ...func(DataIF)) {
+func (p *Process) pushOnSuccessFns(fns ...ProcessFn) {
 	p.onSuccessFns = append(p.onSuccessFns, fns...)
 }
 
 // pushOnFailureFns is a method used to add additional OnFailureFn functions to a Process
-func (p *Process) pushOnFailureFns(fns ...func(DataIF)) {
+func (p *Process) pushOnFailureFns(fns ...ProcessFn) {
 	p.onFailureFns = append(p.onFailureFns, fns...)
+}
+
+func (p *Process) applyFns(fns []ProcessFn, datum []DataIF) {
+	if len(fns) > 0 {
+		for _, data := range datum {
+			p.applyFns(fns[1:], fns[0](data))
+		}
+	}
 }
 
 // startFn defines the startup procedure for a Process
@@ -185,18 +195,14 @@ func (p *Process) startFn(ctx context.Context, wg *sync.WaitGroup) {
 					for id, success := range status.results.successMap {
 						job := status.results.jobsMap[id]
 						if success != nil && *success {
-							for _, fn := range p.onSuccessFns {
-								fn(job.data)
-							}
+							p.applyFns(p.onSuccessFns, []DataIF{job.data})
 						} else if success != nil && !*success {
 							failures++
 							if job.retries < p.maxRetries {
 								job.incrementRetry()
 								batch.add(job)
 							} else {
-								for _, fn := range p.onFailureFns {
-									fn(job.data)
-								}
+								p.applyFns(p.onFailureFns, []DataIF{job.data})
 							}
 						}
 					}
