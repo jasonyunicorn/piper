@@ -33,10 +33,10 @@ func NewPipeline(name string, processes []*Process, fns ...PipelineOptionFn) (*P
 	}
 	p.exec = newExec(p.startFn, p.stopFn)
 
-	// Apply functional options
-	for _, fn := range fns {
-		fn(p)
-	}
+	//// Apply functional options
+	//for _, fn := range fns {
+	//	fn(p)
+	//}
 
 	return p, nil
 }
@@ -44,12 +44,12 @@ func NewPipeline(name string, processes []*Process, fns ...PipelineOptionFn) (*P
 // PipelineOptionFn is a method signature used for configuring the configurable fields of Pipeline
 type PipelineOptionFn func(p *Pipeline)
 
-// PipelineWithOnStartFn is an option function for configuring the Pipeline's onStartFn
-func PipelineWithOnStartFn(onStartFn execFnType) PipelineOptionFn {
-	return func(p *Pipeline) {
-		p.onStartFn = onStartFn
-	}
-}
+//// PipelineWithOnStartFn is an option function for configuring the Pipeline's onStartFn
+//func PipelineWithOnStartFn(onStartFn execFnType) PipelineOptionFn {
+//	return func(p *Pipeline) {
+//		p.onStartFn = onStartFn
+//	}
+//}
 
 // startFn defines the startup procedure for a Pipeline
 func (p *Pipeline) startFn(ctx context.Context, wg *sync.WaitGroup) {
@@ -59,7 +59,12 @@ func (p *Pipeline) startFn(ctx context.Context, wg *sync.WaitGroup) {
 	// as an OnSuccessFn for the previous Process
 	for i, process := range p.processes {
 		if i > 0 {
-			p.processes[i-1].pushOnSuccessFns(process.ProcessData)
+			func(processPtr *Process) {
+				p.processes[i-1].pushOnSuccessFns(func(data DataIF) []DataIF {
+					processPtr.ProcessData(data)
+					return []DataIF{}
+				})
+			}(process)
 		}
 	}
 
@@ -96,6 +101,7 @@ func (p *Pipeline) Stop(ctx context.Context, wg *sync.WaitGroup) {
 	p.exec.stop(ctx, wg)
 }
 
+// ProcessData puts data on the first Process's queue for batch processing
 func (p *Pipeline) ProcessData(data DataIF) {
 	p.processes[0].ProcessData(data)
 }

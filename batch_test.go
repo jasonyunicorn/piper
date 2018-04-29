@@ -2,11 +2,38 @@ package piper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"testing"
 )
+
+type testBatchExecAllSucceedFn struct {
+}
+
+func (fn *testBatchExecAllSucceedFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
+	errorsMap := make(map[string]error)
+	for _, data := range datum {
+		td := data.(*testData)
+		errorsMap[td.id] = nil
+	}
+
+	return errorsMap, nil
+}
+
+type testBatchExecAllFailFn struct {
+}
+
+func (fn *testBatchExecAllFailFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
+	errorsMap := make(map[string]error)
+	for _, data := range datum {
+		td := data.(*testData)
+		errorsMap[td.id] = fmt.Errorf("Error#%d", td.value)
+	}
+
+	return errorsMap, nil
+}
 
 type testBatchExecEvensFailFn struct {
 }
@@ -25,34 +52,19 @@ func (fn *testBatchExecEvensFailFn) Execute(ctx context.Context, datum []DataIF)
 	return errorsMap, nil
 }
 
-type testBatchExecAllSucceedFn struct {
+type testBatchExecErrorsFn struct {
 }
 
-func (fn *testBatchExecAllSucceedFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
+func (fn *testBatchExecErrorsFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
 	errorsMap := make(map[string]error)
-	for _, data := range datum {
-		td := data.(*testData)
-		errorsMap[td.id] = nil
-	}
-	return errorsMap, nil
-}
 
-type testBatchExecAllFailFn struct {
-}
-
-func (fn *testBatchExecAllFailFn) Execute(ctx context.Context, datum []DataIF) (map[string]error, error) {
-	errorsMap := make(map[string]error)
-	for _, data := range datum {
-		td := data.(*testData)
-		errorsMap[td.id] = fmt.Errorf("Error#%d", td.value)
-	}
-	return errorsMap, nil
+	return errorsMap, errors.New("Test error")
 }
 
 func newTestJobs(numJobs int) []*job {
-	js := make([]*job, 0)
+	js := make([]*job, numJobs)
 	for i := 0; i < numJobs; i++ {
-		js = append(js, newJob(newTestData(i)))
+		js[i] = newJob(newTestData(i))
 	}
 
 	return js
@@ -131,7 +143,7 @@ func TestBatch_UpdateSuccess(t *testing.T) {
 	}
 }
 
-func TestBatch_Execute(t *testing.T) {
+func TestBatch_ExecuteSuccess(t *testing.T) {
 	b := newBatch(10)
 
 	numJobs := 10
@@ -139,7 +151,10 @@ func TestBatch_Execute(t *testing.T) {
 	b.add(js...)
 
 	fn := testBatchExecEvensFailFn{}
-	b.execute(context.TODO(), fn.Execute)
+	err := b.execute(context.TODO(), fn.Execute)
+	if err != nil {
+		t.Fatal("unexpected error ", err)
+	}
 
 	for k, success := range b.successMap {
 		if success == nil {
@@ -156,5 +171,20 @@ func TestBatch_Execute(t *testing.T) {
 				t.Fatalf("successMap invalid: wanted [%t], got [%t]", true, !*success)
 			}
 		}
+	}
+}
+
+func TestBatch_ExecuteFailure(t *testing.T) {
+	b := newBatch(10)
+
+	numJobs := 10
+	js := newTestJobs(numJobs)
+	b.add(js...)
+
+	fn := testBatchExecErrorsFn{}
+	err := b.execute(context.TODO(), fn.Execute)
+
+	if err == nil {
+		t.Fatal("expected error but got nil")
 	}
 }

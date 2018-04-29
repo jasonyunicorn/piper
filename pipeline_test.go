@@ -68,11 +68,11 @@ func TestPipeline_ProcessData1(t *testing.T) {
 	datum := newTestDatum(dataCount)
 
 	tp := newTestProcess()
+	te := testBatchExecAllSucceedFn{}
 
 	numProcesses := 2
 	processes := make([]*Process, numProcesses)
 	for i := 0; i < numProcesses; i++ {
-		te := testBatchExecAllSucceedFn{}
 		processes[i] = NewProcess(fmt.Sprintf("TestProcess#%s", strconv.Itoa(i+1)), &te,
 			ProcessWithOnSuccessFns(tp.onSuccessFn),
 			ProcessWithOnFailureFns(tp.onFailureFn),
@@ -80,7 +80,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Pipelines", processes)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Processes", processes)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go p.Start(context.TODO(), wg)
@@ -90,6 +90,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 		p.ProcessData(data)
 	}
 
+	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(10 * time.Second)
 	wg.Add(1)
 	go p.Stop(context.TODO(), wg)
@@ -109,11 +110,11 @@ func TestPipeline_ProcessData2(t *testing.T) {
 	datum := newTestDatum(dataCount)
 
 	tp := newTestProcess()
+	te := testBatchExecAllSucceedFn{}
 
 	numProcesses := 3
 	processes := make([]*Process, numProcesses)
 	for i := 0; i < numProcesses; i++ {
-		te := testBatchExecAllSucceedFn{}
 		processes[i] = NewProcess(fmt.Sprintf("TestProcess#%s", strconv.Itoa(i+1)), &te,
 			ProcessWithOnSuccessFns(tp.onSuccessFn),
 			ProcessWithOnFailureFns(tp.onFailureFn),
@@ -121,7 +122,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 			ProcessWithBatchTimeout(500*time.Millisecond),
 		)
 	}
-	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Pipelines", processes)
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Processes", processes)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go p.Start(context.TODO(), wg)
@@ -131,6 +132,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 		p.ProcessData(data)
 	}
 
+	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(10 * time.Second)
 	wg.Add(1)
 	go p.Stop(context.TODO(), wg)
@@ -141,5 +143,54 @@ func TestPipeline_ProcessData2(t *testing.T) {
 	got := int(gotSuccessCount) + int(gotFailureCount)
 	if got != dataCount*numProcesses {
 		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", dataCount*numProcesses, got)
+	}
+}
+
+func TestPipeline_ProcessData3(t *testing.T) {
+	dataCount := 100
+	datum := newTestDatum(dataCount)
+
+	tp := newExpandingTestProcess()
+	te := testBatchExecAllSucceedFn{}
+
+	numProcesses := 3
+	processes := make([]*Process, numProcesses)
+	for i := 0; i < numProcesses; i++ {
+		processes[i] = NewProcess(fmt.Sprintf("TestProcess#%s", strconv.Itoa(i+1)), &te,
+			ProcessWithOnSuccessFns(tp.onSuccessFn),
+			ProcessWithOnFailureFns(tp.onFailureFn),
+			ProcessWithMaxRetries(0),
+			ProcessWithBatchTimeout(500*time.Millisecond),
+			ProcessWithMaxBatchSize(1),
+		)
+	}
+	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Processes, Expanding", processes)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go p.Start(context.TODO(), wg)
+	wg.Wait()
+
+	for _, data := range datum {
+		p.ProcessData(data)
+	}
+
+	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
+	time.Sleep(10 * time.Second)
+	wg.Add(1)
+	go p.Stop(context.TODO(), wg)
+	wg.Wait()
+
+	gotSuccessCount := atomic.LoadUint64(tp.successCount)
+	gotFailureCount := atomic.LoadUint64(tp.failureCount)
+	got := int(gotSuccessCount) + int(gotFailureCount)
+
+	var factor uint
+	var i uint
+	for i = 0; i < uint(numProcesses); i++ {
+		factor += 1 << i
+	}
+	want := dataCount * int(factor)
+	if got != want {
+		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", want, got)
 	}
 }
