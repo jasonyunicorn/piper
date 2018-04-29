@@ -37,6 +37,25 @@ func newTestProcess() *testProcess {
 	}
 }
 
+func newExpandingTestProcess() *testProcess {
+	var successCount, failureCount uint64 = 0, 0
+	onSuccessFn := func(d DataIF) []DataIF {
+		atomic.AddUint64(&successCount, 1)
+		return []DataIF{d, d}
+	}
+	onFailureFn := func(d DataIF) []DataIF {
+		atomic.AddUint64(&failureCount, 1)
+		return []DataIF{d, d}
+	}
+
+	return &testProcess{
+		successCount: &successCount,
+		failureCount: &failureCount,
+		onSuccessFn:  onSuccessFn,
+		onFailureFn:  onFailureFn,
+	}
+}
+
 func TestProcess_NewProcess(t *testing.T) {
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess", &te)
@@ -185,6 +204,7 @@ func TestProcess_ProcessData1(t *testing.T) {
 		p.ProcessData(data)
 	}
 
+	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(3 * time.Second)
 	wg.Add(1)
 	go p.Stop(context.TODO(), wg)
@@ -221,6 +241,7 @@ func TestProcess_ProcessData2(t *testing.T) {
 		p.ProcessData(data)
 	}
 
+	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(6 * time.Second)
 	wg.Add(1)
 	go p.Stop(context.TODO(), wg)

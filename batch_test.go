@@ -18,6 +18,7 @@ func (fn *testBatchExecAllSucceedFn) Execute(ctx context.Context, datum []DataIF
 		td := data.(*testData)
 		errorsMap[td.id] = nil
 	}
+
 	return errorsMap, nil
 }
 
@@ -30,6 +31,7 @@ func (fn *testBatchExecAllFailFn) Execute(ctx context.Context, datum []DataIF) (
 		td := data.(*testData)
 		errorsMap[td.id] = fmt.Errorf("Error#%d", td.value)
 	}
+
 	return errorsMap, nil
 }
 

@@ -101,6 +101,7 @@ func (p *Pipeline) Stop(ctx context.Context, wg *sync.WaitGroup) {
 	p.exec.stop(ctx, wg)
 }
 
+// ProcessData puts data on the first Process's queue for batch processing
 func (p *Pipeline) ProcessData(data DataIF) {
 	p.processes[0].ProcessData(data)
 }

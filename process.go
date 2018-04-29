@@ -28,6 +28,7 @@ const (
 	DEFAULT_RATE_LIMIT rate.Limit = rate.Inf
 )
 
+// ProcessFn is a method signature which defines the expectations of the OnSuccess and OnFailure callback functions
 type ProcessFn func(DataIF) []DataIF
 
 // Process is an object used for managing the execution of batch jobs amongst multiple concurrent workers
@@ -153,10 +154,13 @@ func (p *Process) pushOnFailureFns(fns ...ProcessFn) {
 	p.onFailureFns = append(p.onFailureFns, fns...)
 }
 
+// applyFns function applies the slice of callback functions (recursively) to the datum
 func (p *Process) applyFns(fns []ProcessFn, datum []DataIF) {
-	if len(fns) > 0 {
-		for _, data := range datum {
+	for _, data := range datum {
+		if len(fns) > 1 {
 			p.applyFns(fns[1:], fns[0](data))
+		} else {
+			fns[0](data)
 		}
 	}
 }
