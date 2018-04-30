@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,14 +52,10 @@ func TestPipeline_StartStop(t *testing.T) {
 
 	processes := []*Process{proc1, proc2}
 	p, _ := NewPipeline("TestPipeline", processes)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
 
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	ctx := context.TODO()
+	p.Start(ctx)
+	p.Stop(ctx)
 }
 
 func TestPipeline_ProcessData1(t *testing.T) {
@@ -81,10 +76,9 @@ func TestPipeline_ProcessData1(t *testing.T) {
 		)
 	}
 	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 2 Processes", processes)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
+
+	ctx := context.TODO()
+	p.Start(ctx)
 
 	for _, data := range datum {
 		p.ProcessData(data)
@@ -92,9 +86,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 
 	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(10 * time.Second)
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
@@ -123,10 +115,9 @@ func TestPipeline_ProcessData2(t *testing.T) {
 		)
 	}
 	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Processes", processes)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
+
+	ctx := context.TODO()
+	p.Start(ctx)
 
 	for _, data := range datum {
 		p.ProcessData(data)
@@ -134,9 +125,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 
 	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(10 * time.Second)
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
@@ -165,10 +154,9 @@ func TestPipeline_ProcessData3(t *testing.T) {
 		)
 	}
 	p, _ := NewPipeline("TestPipeline - All Jobs Succeed, 3 Processes, Expanding", processes)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
+
+	ctx := context.TODO()
+	p.Start(ctx)
 
 	for _, data := range datum {
 		p.ProcessData(data)
@@ -176,9 +164,7 @@ func TestPipeline_ProcessData3(t *testing.T) {
 
 	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(10 * time.Second)
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)

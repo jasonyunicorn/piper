@@ -3,7 +3,6 @@ package piper
 import (
 	"context"
 	"fmt"
-	"sync"
 )
 
 // Pipeline is an object used for chaining multiple Processes together sequentially
@@ -11,9 +10,6 @@ type Pipeline struct {
 	// required
 	name      string     // Name of the pipeline
 	processes []*Process // Processes that make up the pipeline arranged in order that they should be run
-
-	// configurable
-	onStartFn execFnType //
 
 	// internal
 	exec executable
@@ -27,16 +23,8 @@ func NewPipeline(name string, processes []*Process, fns ...PipelineOptionFn) (*P
 	p := &Pipeline{
 		name:      name,
 		processes: processes,
-		onStartFn: func(ctx context.Context, wg *sync.WaitGroup) {
-			defer wg.Done()
-		},
 	}
 	p.exec = newExec(p.startFn, p.stopFn)
-
-	//// Apply functional options
-	//for _, fn := range fns {
-	//	fn(p)
-	//}
 
 	return p, nil
 }
@@ -44,17 +32,8 @@ func NewPipeline(name string, processes []*Process, fns ...PipelineOptionFn) (*P
 // PipelineOptionFn is a method signature used for configuring the configurable fields of Pipeline
 type PipelineOptionFn func(p *Pipeline)
 
-//// PipelineWithOnStartFn is an option function for configuring the Pipeline's onStartFn
-//func PipelineWithOnStartFn(onStartFn execFnType) PipelineOptionFn {
-//	return func(p *Pipeline) {
-//		p.onStartFn = onStartFn
-//	}
-//}
-
 // startFn defines the startup procedure for a Pipeline
-func (p *Pipeline) startFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (p *Pipeline) startFn(ctx context.Context) {
 	// Chain the processes together by adding the next Process's ProcessData callback function
 	// as an OnSuccessFn for the previous Process
 	for i, process := range p.processes {
@@ -70,35 +49,25 @@ func (p *Pipeline) startFn(ctx context.Context, wg *sync.WaitGroup) {
 
 	// Then start the all the processes
 	for _, process := range p.processes {
-		wg.Add(1)
-		go process.exec.start(ctx, wg)
+		process.exec.start(ctx)
 	}
-
-	wg.Add(1)
-	go p.onStartFn(context.TODO(), wg)
 }
 
 // stopFn defines the shutdown procedure for a Pipeline
-func (p *Pipeline) stopFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (p *Pipeline) stopFn(ctx context.Context) {
 	for _, process := range p.processes {
-		wg.Add(1)
-		go process.exec.stop(ctx, wg)
+		process.exec.stop(ctx)
 	}
 }
 
 // Start is used to trigger the Pipeline's startup sequence
-func (p *Pipeline) Start(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	wg.Add(1)
-	p.exec.start(ctx, wg)
+func (p *Pipeline) Start(ctx context.Context) {
+	p.exec.start(ctx)
 }
 
 // Stop is used to trigger the Pipeline's shutdown sequence
-func (p *Pipeline) Stop(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	wg.Add(1)
-	p.exec.stop(ctx, wg)
+func (p *Pipeline) Stop(ctx context.Context) {
+	p.exec.stop(ctx)
 }
 
 // ProcessData puts data on the first Process's queue for batch processing

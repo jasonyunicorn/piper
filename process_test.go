@@ -3,7 +3,6 @@ package piper
 import (
 	"context"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -173,14 +172,10 @@ func TestProcess_PushOnFailureFns(t *testing.T) {
 func TestProcess_StartStop(t *testing.T) {
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess - Start/Stop", &te)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
 
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	ctx := context.TODO()
+	p.Start(ctx)
+	p.Stop(ctx)
 }
 
 func TestProcess_ProcessData1(t *testing.T) {
@@ -195,10 +190,9 @@ func TestProcess_ProcessData1(t *testing.T) {
 		ProcessWithMaxRetries(0),
 		ProcessWithBatchTimeout(500*time.Millisecond),
 	)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
+
+	ctx := context.TODO()
+	p.Start(ctx)
 
 	for _, data := range datum {
 		p.ProcessData(data)
@@ -206,9 +200,7 @@ func TestProcess_ProcessData1(t *testing.T) {
 
 	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(3 * time.Second)
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
@@ -232,10 +224,9 @@ func TestProcess_ProcessData2(t *testing.T) {
 		ProcessWithMaxRetries(retries),
 		ProcessWithBatchTimeout(500*time.Millisecond),
 	)
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go p.Start(context.TODO(), wg)
-	wg.Wait()
+
+	ctx := context.TODO()
+	p.Start(ctx)
 
 	for _, data := range datum {
 		p.ProcessData(data)
@@ -243,9 +234,7 @@ func TestProcess_ProcessData2(t *testing.T) {
 
 	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
 	time.Sleep(6 * time.Second)
-	wg.Add(1)
-	go p.Stop(context.TODO(), wg)
-	wg.Wait()
+	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	if gotSuccessCount != 0 {
