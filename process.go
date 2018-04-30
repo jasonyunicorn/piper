@@ -2,7 +2,6 @@ package piper
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -166,9 +165,7 @@ func (p *Process) applyFns(fns []ProcessFn, datum []DataIF) {
 }
 
 // startFn defines the startup procedure for a Process
-func (p *Process) startFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (p *Process) startFn(ctx context.Context) {
 	// Initialize stuff
 	limiter := rate.NewLimiter(p.rateLimit, 1)
 	p.jobsCh = make(chan *job)
@@ -179,9 +176,7 @@ func (p *Process) startFn(ctx context.Context, wg *sync.WaitGroup) {
 	for i := 0; i < p.concurrency; i++ {
 		w := newWorker(p.batchExec.Execute, statusCh)
 		p.workers = append(p.workers, *w)
-
-		wg.Add(1)
-		go w.exec.start(ctx, wg)
+		w.exec.start(ctx)
 	}
 
 	go func() {
@@ -239,29 +234,22 @@ func (p *Process) startFn(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 // stopFn defines the shutdown procedure for a Process
-func (p *Process) stopFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (p *Process) stopFn(ctx context.Context) {
 	// Stop Process before stopping workers
 	p.stopCh <- struct{}{}
 	for _, w := range p.workers {
-		wg.Add(1)
-		go w.exec.stop(ctx, wg)
+		w.exec.stop(ctx)
 	}
 }
 
 // Start is used to trigger the Process's startup sequence
-func (p *Process) Start(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	wg.Add(1)
-	p.exec.start(ctx, wg)
+func (p *Process) Start(ctx context.Context) {
+	p.exec.start(ctx)
 }
 
 // Start is used to trigger the Process's shutdown sequence
-func (p *Process) Stop(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	wg.Add(1)
-	p.exec.stop(ctx, wg)
+func (p *Process) Stop(ctx context.Context) {
+	p.exec.stop(ctx)
 }
 
 // ProcessData puts data on the queue for batch processing

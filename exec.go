@@ -5,13 +5,13 @@ import (
 	"sync"
 )
 
-// execFnType
-type execFnType func(context.Context, *sync.WaitGroup)
+// execFnType is a method signature for the start / stop methods of the executable interface
+type execFnType func(context.Context)
 
 // executable is an interface which exposes the start and stop methods
 type executable interface {
-	start(context.Context, *sync.WaitGroup)
-	stop(context.Context, *sync.WaitGroup)
+	start(context.Context)
+	stop(context.Context)
 }
 
 // exec is a struct which implements the executable interface and is used for managing the startup and shutdown of processes
@@ -32,9 +32,7 @@ func newExec(startFn, stopFn execFnType) *exec {
 }
 
 // start triggers the startup sequence by calling startFn
-func (e *exec) start(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (e *exec) start(ctx context.Context) {
 	// Lock the mutex to prevent race conditions with Stop
 	e.execMutex.Lock()
 	defer e.execMutex.Unlock()
@@ -45,15 +43,12 @@ func (e *exec) start(ctx context.Context, wg *sync.WaitGroup) {
 			// reset stopOnce so the shutdown sequence can happen again
 			e.stopOnce = sync.Once{}
 		}()
-		wg.Add(1)
-		e.startFn(ctx, wg)
+		e.startFn(ctx)
 	})
 }
 
 // stop triggers the shutdown sequence by calling stopFn
-func (e *exec) stop(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (e *exec) stop(ctx context.Context) {
 	// Lock the mutex to prevent race conditions with Start
 	e.execMutex.Lock()
 	defer e.execMutex.Unlock()
@@ -64,7 +59,6 @@ func (e *exec) stop(ctx context.Context, wg *sync.WaitGroup) {
 			// reset startOnce so the startup sequence can happen again
 			e.startOnce = sync.Once{}
 		}()
-		wg.Add(1)
-		e.stopFn(ctx, wg)
+		e.stopFn(ctx)
 	})
 }

@@ -2,7 +2,6 @@ package piper
 
 import (
 	"context"
-	"sync"
 )
 
 // status is a struct used to communicate the results of a worker's last batch job
@@ -35,9 +34,7 @@ func newWorker(fn BatchExecFn, statusCh chan *status) *worker {
 }
 
 // startFn defines the startup procedure for a worker
-func (w *worker) startFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (w *worker) startFn(ctx context.Context) {
 	// Initialize channels
 	w.batchCh = make(chan *batch)
 	w.stopCh = make(chan struct{})
@@ -66,9 +63,7 @@ func (w *worker) startFn(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 // stopFn defines the shutdown procedure for a worker
-func (w *worker) stopFn(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (w *worker) stopFn(ctx context.Context) {
 	w.stopCh <- struct{}{}
 	close(w.stopCh)
 	close(w.batchCh)
