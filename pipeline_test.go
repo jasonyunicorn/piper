@@ -58,7 +58,7 @@ func TestPipeline_StartStop(t *testing.T) {
 	p.Stop(ctx)
 }
 
-func TestPipeline_ProcessData1(t *testing.T) {
+func TestPipeline_ProcessDatum1(t *testing.T) {
 	dataCount := 100
 	datum := newTestDatum(dataCount)
 
@@ -79,13 +79,7 @@ func TestPipeline_ProcessData1(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-
-	for _, data := range datum {
-		p.ProcessData(data)
-	}
-
-	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
-	time.Sleep(10 * time.Second)
+	p.ProcessDatum(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
@@ -94,10 +88,9 @@ func TestPipeline_ProcessData1(t *testing.T) {
 	if got != dataCount*numProcesses {
 		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", dataCount*numProcesses, got)
 	}
-
 }
 
-func TestPipeline_ProcessData2(t *testing.T) {
+func TestPipeline_ProcessDatum2(t *testing.T) {
 	dataCount := 100
 	datum := newTestDatum(dataCount)
 
@@ -118,13 +111,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-
-	for _, data := range datum {
-		p.ProcessData(data)
-	}
-
-	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
-	time.Sleep(10 * time.Second)
+	p.ProcessDatum(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
@@ -135,7 +122,7 @@ func TestPipeline_ProcessData2(t *testing.T) {
 	}
 }
 
-func TestPipeline_ProcessData3(t *testing.T) {
+func TestPipeline_ProcessDatum3(t *testing.T) {
 	dataCount := 100
 	datum := newTestDatum(dataCount)
 
@@ -157,13 +144,7 @@ func TestPipeline_ProcessData3(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-
-	for _, data := range datum {
-		p.ProcessData(data)
-	}
-
-	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
-	time.Sleep(10 * time.Second)
+	p.ProcessDatum(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
