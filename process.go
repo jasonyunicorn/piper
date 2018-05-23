@@ -2,6 +2,7 @@ package piper
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -47,10 +48,11 @@ type Process struct {
 	onFailureFns []ProcessFn   // callback function that gets called when a job has exceeded the maximum number of retries
 
 	// internal
-	exec    executable    // mechanism for starting / stopping
-	jobsCh  chan *job     // channel for queued jobs to be processed
-	workers []worker      // slice of workers used to track concurrent workers
-	stopCh  chan struct{} // channel used to gracefully stop a process
+	exec    executable      // mechanism for starting / stopping
+	wg      *sync.WaitGroup // used to wait until ProcessDatum is complete
+	jobsCh  chan *job       // channel for queued jobs to be processed
+	workers []worker        // slice of workers used to track concurrent workers
+	stopCh  chan struct{}   // channel used to gracefully stop a process
 }
 
 // newDefaultProcess creates a pointer to a Process which contains default fields
@@ -68,6 +70,7 @@ func newDefaultProcess(name string, batchExec BatchExecutable) *Process {
 		rateLimit:    DEFAULT_RATE_LIMIT,
 		onSuccessFns: onSuccessFns,
 		onFailureFns: onFailureFns,
+		wg:           &sync.WaitGroup{},
 	}
 }
 
@@ -195,6 +198,7 @@ func (p *Process) startFn(ctx context.Context) {
 						job := status.results.jobsMap[id]
 						if success != nil && *success {
 							p.applyFns(p.onSuccessFns, []DataIF{job.data})
+							p.wg.Done()
 						} else if success != nil && !*success {
 							failures++
 							if job.retries < p.maxRetries {
@@ -202,6 +206,7 @@ func (p *Process) startFn(ctx context.Context) {
 								batch.add(job)
 							} else {
 								p.applyFns(p.onFailureFns, []DataIF{job.data})
+								p.wg.Done()
 							}
 						}
 					}
@@ -242,6 +247,12 @@ func (p *Process) stopFn(ctx context.Context) {
 	}
 }
 
+// processData puts data on the queue for batch processing
+func (p *Process) processData(data DataIF) {
+	p.wg.Add(1)
+	p.jobsCh <- newJob(data)
+}
+
 // Start is used to trigger the Process's startup sequence
 func (p *Process) Start(ctx context.Context) {
 	p.exec.start(ctx)
@@ -252,7 +263,14 @@ func (p *Process) Stop(ctx context.Context) {
 	p.exec.stop(ctx)
 }
 
-// ProcessData puts data on the queue for batch processing
-func (p *Process) ProcessData(data DataIF) {
-	p.jobsCh <- newJob(data)
+// ProcessDatum puts all data on the queue for batch processing and waits until all data has been processed
+func (p *Process) ProcessDatum(datum []DataIF) {
+	p.wg.Add(1)
+	go func(datum []DataIF) {
+		defer p.wg.Done()
+		for _, data := range datum {
+			p.processData(data)
+		}
+	}(datum)
+	p.wg.Wait()
 }

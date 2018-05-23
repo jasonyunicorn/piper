@@ -3,6 +3,7 @@ package piper
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // Pipeline is an object used for chaining multiple Processes together sequentially
@@ -12,7 +13,8 @@ type Pipeline struct {
 	processes []*Process // Processes that make up the pipeline arranged in order that they should be run
 
 	// internal
-	exec executable
+	exec executable      // mechanism for starting / stopping
+	wg   *sync.WaitGroup // used to wait until ProcessData is complete
 }
 
 // NewPipeline creates a pointer to a Pipeline
@@ -23,8 +25,14 @@ func NewPipeline(name string, processes []*Process, fns ...PipelineOptionFn) (*P
 	p := &Pipeline{
 		name:      name,
 		processes: processes,
+		wg:        &sync.WaitGroup{},
 	}
 	p.exec = newExec(p.startFn, p.stopFn)
+
+	//// Apply functional options
+	//for _, fn := range fns {
+	//	fn(p)
+	//}
 
 	return p, nil
 }
@@ -40,15 +48,17 @@ func (p *Pipeline) startFn(ctx context.Context) {
 		if i > 0 {
 			func(processPtr *Process) {
 				p.processes[i-1].pushOnSuccessFns(func(data DataIF) []DataIF {
-					processPtr.ProcessData(data)
+					processPtr.processData(data)
 					return []DataIF{}
 				})
 			}(process)
 		}
 	}
 
-	// Then start the all the processes
 	for _, process := range p.processes {
+		// Make all of the processes share the same WaitGroup
+		process.wg = p.wg
+		// Then start the all the process
 		process.exec.start(ctx)
 	}
 }
@@ -70,7 +80,7 @@ func (p *Pipeline) Stop(ctx context.Context) {
 	p.exec.stop(ctx)
 }
 
-// ProcessData puts data on the first Process's queue for batch processing
-func (p *Pipeline) ProcessData(data DataIF) {
-	p.processes[0].ProcessData(data)
+// ProcessDatum puts all data on the queue for batch processing and waits until all data has been processed
+func (p *Pipeline) ProcessDatum(datum []DataIF) {
+	p.processes[0].ProcessDatum(datum)
 }

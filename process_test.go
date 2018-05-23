@@ -183,8 +183,8 @@ func TestProcess_ProcessData1(t *testing.T) {
 	datum := newTestDatum(want)
 
 	tp := newTestProcess()
-	te := testBatchExecEvensFailFn{}
-	p := NewProcess("TestProcess - Evens Fail, Odds Succeed", &te,
+	te := testBatchExecAllSucceedFn{}
+	p := NewProcess("TestProcess - All Succeed", &te,
 		ProcessWithOnSuccessFns(tp.onSuccessFn),
 		ProcessWithOnFailureFns(tp.onFailureFn),
 		ProcessWithMaxRetries(0),
@@ -193,13 +193,7 @@ func TestProcess_ProcessData1(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-
-	for _, data := range datum {
-		p.ProcessData(data)
-	}
-
-	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
-	time.Sleep(3 * time.Second)
+	p.ProcessDatum(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
@@ -211,13 +205,38 @@ func TestProcess_ProcessData1(t *testing.T) {
 }
 
 func TestProcess_ProcessData2(t *testing.T) {
+	want := 100
+	datum := newTestDatum(want)
+
+	tp := newTestProcess()
+	te := testBatchExecEvensFailFn{}
+	p := NewProcess("TestProcess - Evens Fail, Odds Succeed", &te,
+		ProcessWithOnSuccessFns(tp.onSuccessFn),
+		ProcessWithOnFailureFns(tp.onFailureFn),
+		ProcessWithMaxRetries(0),
+		ProcessWithBatchTimeout(500*time.Millisecond),
+	)
+
+	ctx := context.TODO()
+	p.Start(ctx)
+	p.ProcessDatum(datum)
+	p.Stop(ctx)
+
+	gotSuccessCount := atomic.LoadUint64(tp.successCount)
+	gotFailureCount := atomic.LoadUint64(tp.failureCount)
+	got := int(gotSuccessCount) + int(gotFailureCount)
+	if got != want {
+		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", want, got)
+	}
+}
+
+func TestProcess_ProcessData3(t *testing.T) {
 	retries := 1
 	dataCount := 100
 	datum := newTestDatum(100)
 
 	tp := newTestProcess()
 	te := testBatchExecAllFailFn{}
-
 	p := NewProcess("TestProcess - Retries", &te,
 		ProcessWithOnSuccessFns(tp.onSuccessFn),
 		ProcessWithOnFailureFns(tp.onFailureFn),
@@ -227,13 +246,7 @@ func TestProcess_ProcessData2(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-
-	for _, data := range datum {
-		p.ProcessData(data)
-	}
-
-	// TODO: Eliminate the need to wait for Process Data by adding a sync.WaitGroup
-	time.Sleep(6 * time.Second)
+	p.ProcessDatum(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
