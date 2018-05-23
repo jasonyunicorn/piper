@@ -178,7 +178,7 @@ func TestProcess_StartStop(t *testing.T) {
 	p.Stop(ctx)
 }
 
-func TestProcess_ProcessData1(t *testing.T) {
+func TestProcess_ProcessDatum1(t *testing.T) {
 	want := 100
 	datum := newTestDatum(want)
 
@@ -204,7 +204,7 @@ func TestProcess_ProcessData1(t *testing.T) {
 	}
 }
 
-func TestProcess_ProcessData2(t *testing.T) {
+func TestProcess_ProcessDatum2(t *testing.T) {
 	want := 100
 	datum := newTestDatum(want)
 
@@ -230,7 +230,7 @@ func TestProcess_ProcessData2(t *testing.T) {
 	}
 }
 
-func TestProcess_ProcessData3(t *testing.T) {
+func TestProcess_ProcessDatum3(t *testing.T) {
 	retries := 1
 	dataCount := 100
 	datum := newTestDatum(100)
