@@ -63,19 +63,31 @@ func (p *Pipeline) startFn(ctx context.Context) {
 		}
 	}
 
+	wg := &sync.WaitGroup{}
+	wg.Add(len(p.processes))
+	defer wg.Wait()
 	for _, process := range p.processes {
 		// Make all of the processes share the same WaitGroup
 		process.setWaitGroup(p.wg)
 
 		// Then start the all the process
-		process.exec.start(ctx)
+		go func(ctx context.Context, wg *sync.WaitGroup, process *Process) {
+			defer wg.Done()
+			process.exec.start(ctx)
+		}(ctx, wg, process)
 	}
 }
 
 // stopFn defines the shutdown procedure for a Pipeline
 func (p *Pipeline) stopFn(ctx context.Context) {
+	wg := &sync.WaitGroup{}
+	wg.Add(len(p.processes))
+	defer wg.Wait()
 	for _, process := range p.processes {
-		process.exec.stop(ctx)
+		go func(ctx context.Context, wg *sync.WaitGroup, process *Process) {
+			defer wg.Done()
+			process.exec.stop(ctx)
+		}(ctx, wg, process)
 	}
 }
 

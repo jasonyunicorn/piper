@@ -51,7 +51,7 @@ type Process struct {
 	// internal
 	exec    executable    // mechanism for starting / stopping
 	jobsCh  chan *job     // channel for queued jobs to be processed
-	workers []worker      // slice of workers used to track concurrent workers
+	workers []*worker     // slice of workers used to track concurrent workers
 	stopCh  chan struct{} // channel used to gracefully stop a process
 }
 
@@ -182,13 +182,6 @@ func (p *Process) startFn(ctx context.Context) {
 	p.stopCh = make(chan struct{})
 	statusCh := make(chan *status)
 
-	// Instantiate and start (concurrent) workers
-	for i := 0; i < p.concurrency; i++ {
-		w := newWorker(p.batchExec.Execute, statusCh)
-		p.workers = append(p.workers, *w)
-		w.exec.start(ctx)
-	}
-
 	go func() {
 		// dispatch jobs to workers as necessary
 		for {
@@ -243,14 +236,34 @@ func (p *Process) startFn(ctx context.Context) {
 			}
 		}
 	}()
+
+	// Instantiate and start (concurrent) workers
+	wg := &sync.WaitGroup{}
+	wg.Add(p.concurrency)
+	defer wg.Wait()
+	for i := 0; i < p.concurrency; i++ {
+		w := newWorker(p.batchExec.Execute, statusCh)
+		p.workers = append(p.workers, w)
+		go func(ctx context.Context, wg *sync.WaitGroup) {
+			defer wg.Done()
+			w.exec.start(ctx)
+		}(ctx, wg)
+	}
 }
 
 // stopFn defines the shutdown procedure for a Process
 func (p *Process) stopFn(ctx context.Context) {
+	wg := &sync.WaitGroup{}
+	wg.Add(len(p.workers))
+	defer wg.Wait()
+
 	// Stop Process before stopping workers
 	p.stopCh <- struct{}{}
 	for _, w := range p.workers {
-		w.exec.stop(ctx)
+		go func(ctx context.Context, wg *sync.WaitGroup, w *worker) {
+			defer wg.Done()
+			w.exec.stop(ctx)
+		}(ctx, wg, w)
 	}
 }
 
