@@ -38,21 +38,21 @@ type Process struct {
 	batchExec BatchExecutable // batch function to call on batch jobs
 
 	// configurable
-	concurrency  int           // number of concurrent workers processing batch jobs
-	queueDepth   int           // maximum number of items to queue
-	batchTimeout time.Duration // maximum duration to wait to fill a batch before processing what has been batched
-	maxBatchSize int           // maximum number of items to process in a batch
-	maxRetries   int           // maximum number of retries to attempt to before sending to failover queue
-	rateLimit    rate.Limit    // maximum allowed frequency of batch function calls
-	onSuccessFns []ProcessFn   // callback function that gets called when a job has been executed successfully
-	onFailureFns []ProcessFn   // callback function that gets called when a job has exceeded the maximum number of retries
+	concurrency  int             // number of concurrent workers processing batch jobs
+	queueDepth   int             // maximum number of items to queue
+	batchTimeout time.Duration   // maximum duration to wait to fill a batch before processing what has been batched
+	maxBatchSize int             // maximum number of items to process in a batch
+	maxRetries   int             // maximum number of retries to attempt to before sending to failover queue
+	rateLimit    rate.Limit      // maximum allowed frequency of batch function calls
+	onSuccessFns []ProcessFn     // callback function that gets called when a job has been executed successfully
+	onFailureFns []ProcessFn     // callback function that gets called when a job has exceeded the maximum number of retries
+	wg           *sync.WaitGroup // used to wait until data processing is complete
 
 	// internal
-	exec    executable      // mechanism for starting / stopping
-	wg      *sync.WaitGroup // used to wait until ProcessDatum is complete
-	jobsCh  chan *job       // channel for queued jobs to be processed
-	workers []worker        // slice of workers used to track concurrent workers
-	stopCh  chan struct{}   // channel used to gracefully stop a process
+	exec    executable    // mechanism for starting / stopping
+	jobsCh  chan *job     // channel for queued jobs to be processed
+	workers []worker      // slice of workers used to track concurrent workers
+	stopCh  chan struct{} // channel used to gracefully stop a process
 }
 
 // newDefaultProcess creates a pointer to a Process which contains default fields
@@ -143,6 +143,13 @@ func ProcessWithOnSuccessFns(fns ...ProcessFn) ProcessOptionFn {
 func ProcessWithOnFailureFns(fns ...ProcessFn) ProcessOptionFn {
 	return func(p *Process) {
 		p.onFailureFns = fns
+	}
+}
+
+// ProcessWithWaitGroup is an option function for configuring the Process's onFailureFn
+func ProcessWithWaitGroup(wg *sync.WaitGroup) ProcessOptionFn {
+	return func(p *Process) {
+		p.wg = wg
 	}
 }
 
@@ -247,10 +254,9 @@ func (p *Process) stopFn(ctx context.Context) {
 	}
 }
 
-// processData puts data on the queue for batch processing
-func (p *Process) processData(data DataIF) {
-	p.wg.Add(1)
-	p.jobsCh <- newJob(data)
+// setWaitGroup updates the Process's internal WaitGroup to use the provided WaitGroup.  This is used for pipelines to share the same WaitGroup across all processes.
+func (p *Process) setWaitGroup(wg *sync.WaitGroup) {
+	p.wg = wg
 }
 
 // Start is used to trigger the Process's startup sequence
@@ -263,14 +269,37 @@ func (p *Process) Stop(ctx context.Context) {
 	p.exec.stop(ctx)
 }
 
-// ProcessDatum puts all data on the queue for batch processing and waits until all data has been processed
-func (p *Process) ProcessDatum(datum []DataIF) {
+// ProcessData puts data on the queue for batch processing.  The processing is a synchronous
+// operation, so the method returns as soon as the job is put on the queue, which should be
+// almost instantly assuming the number of jobs in the queue is less than the queue depth.
+func (p *Process) ProcessData(data DataIF) {
 	p.wg.Add(1)
-	go func(datum []DataIF) {
-		defer p.wg.Done()
-		for _, data := range datum {
-			p.processData(data)
-		}
-	}(datum)
+	p.jobsCh <- newJob(data)
+}
+
+// ProcessDataAsync puts data on the queue for batch processing and waits for the job to finish
+// before returning.  It only makes sense to use this method if there is one data point to process.
+// To optimize performance when using this method, set the maxBatchSize to 1.
+func (p *Process) ProcessDataAsync(data DataIF) {
+	p.ProcessData(data)
+	p.wg.Wait()
+}
+
+// ProcessDatum puts all data on the queue for batch processing.  The process is a synchronous
+// operation, so the method returns as soon as the jobs are put on the queue, which should be
+// almost instantly assuming the number of jobs in the queue is less than the queue depth.
+func (p *Process) ProcessDatum(datum []DataIF) {
+	defer p.wg.Done()
+
+	p.wg.Add(1)
+	for _, data := range datum {
+		p.ProcessData(data)
+	}
+}
+
+// ProcessDatumAsync puts all data on the queue for batch processing and waits until all data has
+// been processed.
+func (p *Process) ProcessDatumAsync(datum []DataIF) {
+	p.ProcessDatum(datum)
 	p.wg.Wait()
 }

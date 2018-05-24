@@ -3,6 +3,7 @@ package piper
 import (
 	"context"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -169,6 +170,16 @@ func TestProcess_PushOnFailureFns(t *testing.T) {
 	}
 }
 
+func TestProcessWithWaitGroup(t *testing.T) {
+	want := &sync.WaitGroup{}
+	te := testBatchExecEvensFailFn{}
+	p := NewProcess("TestProcess", &te, ProcessWithWaitGroup(want))
+	got := p.wg
+	if want != got {
+		t.Fatalf("WaitGroup invalid: want [%v], got [%v]", want, got)
+	}
+}
+
 func TestProcess_StartStop(t *testing.T) {
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess - Start/Stop", &te)
@@ -178,7 +189,102 @@ func TestProcess_StartStop(t *testing.T) {
 	p.Stop(ctx)
 }
 
-func TestProcess_ProcessDatum1(t *testing.T) {
+func TestProcess_ProcessData(t *testing.T) {
+	want := 100
+	datum := newTestDatum(want)
+
+	wg := &sync.WaitGroup{}
+	tp := newTestProcess()
+	te := testBatchExecAllSucceedFn{}
+	p := NewProcess("TestProcess - All Succeed, Supply WaitGroup", &te,
+		ProcessWithOnSuccessFns(tp.onSuccessFn),
+		ProcessWithOnFailureFns(tp.onFailureFn),
+		ProcessWithMaxRetries(0),
+		ProcessWithBatchTimeout(500*time.Millisecond),
+		ProcessWithWaitGroup(wg),
+	)
+
+	ctx := context.TODO()
+	p.Start(ctx)
+	wg.Add(1)
+	go func(wg *sync.WaitGroup, datum []DataIF) {
+		defer wg.Done()
+		for _, data := range datum {
+			p.ProcessData(data)
+		}
+	}(wg, datum)
+	wg.Wait()
+	p.Stop(ctx)
+
+	gotSuccessCount := atomic.LoadUint64(tp.successCount)
+	gotFailureCount := atomic.LoadUint64(tp.failureCount)
+	got := int(gotSuccessCount) + int(gotFailureCount)
+	if got != want {
+		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", want, got)
+	}
+}
+
+func TestProcess_ProcessDataAsync(t *testing.T) {
+	want := 1
+	datum := newTestDatum(want)
+
+	tp := newTestProcess()
+	te := testBatchExecAllSucceedFn{}
+	p := NewProcess("TestProcess - All Succeed", &te,
+		ProcessWithOnSuccessFns(tp.onSuccessFn),
+		ProcessWithOnFailureFns(tp.onFailureFn),
+		ProcessWithMaxRetries(0),
+		ProcessWithBatchTimeout(500*time.Millisecond),
+		ProcessWithMaxBatchSize(1),
+	)
+
+	ctx := context.TODO()
+	p.Start(ctx)
+	p.ProcessDataAsync(datum[0])
+	p.Stop(ctx)
+
+	gotSuccessCount := atomic.LoadUint64(tp.successCount)
+	gotFailureCount := atomic.LoadUint64(tp.failureCount)
+	got := int(gotSuccessCount) + int(gotFailureCount)
+	if got != want {
+		t.Fatalf("ProccessDataAsync invalid result: want [%d], got [%d]", want, got)
+	}
+}
+
+func TestProcess_ProcessDatum(t *testing.T) {
+	want := 100
+	datum := newTestDatum(want)
+
+	wg := &sync.WaitGroup{}
+	tp := newTestProcess()
+	te := testBatchExecAllSucceedFn{}
+	p := NewProcess("TestProcess - All Succeed, Supply WaitGroup", &te,
+		ProcessWithOnSuccessFns(tp.onSuccessFn),
+		ProcessWithOnFailureFns(tp.onFailureFn),
+		ProcessWithMaxRetries(0),
+		ProcessWithBatchTimeout(500*time.Millisecond),
+		ProcessWithWaitGroup(wg),
+	)
+
+	ctx := context.TODO()
+	p.Start(ctx)
+	wg.Add(1)
+	go func(wg *sync.WaitGroup, datum []DataIF) {
+		defer wg.Done()
+		p.ProcessDatum(datum)
+	}(wg, datum)
+	wg.Wait()
+	p.Stop(ctx)
+
+	gotSuccessCount := atomic.LoadUint64(tp.successCount)
+	gotFailureCount := atomic.LoadUint64(tp.failureCount)
+	got := int(gotSuccessCount) + int(gotFailureCount)
+	if got != want {
+		t.Fatalf("ProccessDatum invalid result: want [%d], got [%d]", want, got)
+	}
+}
+
+func TestProcess_ProcessDatumAsync1(t *testing.T) {
 	want := 100
 	datum := newTestDatum(want)
 
@@ -193,18 +299,18 @@ func TestProcess_ProcessDatum1(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-	p.ProcessDatum(datum)
+	p.ProcessDatumAsync(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	got := int(gotSuccessCount) + int(gotFailureCount)
 	if got != want {
-		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", want, got)
+		t.Fatalf("ProcessDatumAsync invalid result: want [%d], got [%d]", want, got)
 	}
 }
 
-func TestProcess_ProcessDatum2(t *testing.T) {
+func TestProcess_ProcessDatumAsync2(t *testing.T) {
 	want := 100
 	datum := newTestDatum(want)
 
@@ -219,18 +325,18 @@ func TestProcess_ProcessDatum2(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-	p.ProcessDatum(datum)
+	p.ProcessDatumAsync(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	got := int(gotSuccessCount) + int(gotFailureCount)
 	if got != want {
-		t.Fatalf("ProccessData invalid result: want [%d], got [%d]", want, got)
+		t.Fatalf("ProcessDatumAsync invalid result: want [%d], got [%d]", want, got)
 	}
 }
 
-func TestProcess_ProcessDatum3(t *testing.T) {
+func TestProcess_ProcessDatumAsync3(t *testing.T) {
 	retries := 1
 	dataCount := 100
 	datum := newTestDatum(100)
@@ -246,17 +352,17 @@ func TestProcess_ProcessDatum3(t *testing.T) {
 
 	ctx := context.TODO()
 	p.Start(ctx)
-	p.ProcessDatum(datum)
+	p.ProcessDatumAsync(datum)
 	p.Stop(ctx)
 
 	gotSuccessCount := atomic.LoadUint64(tp.successCount)
 	if gotSuccessCount != 0 {
-		t.Fatalf("ProccessData successCount invalid result: want [%d], got [%d]", 0, gotSuccessCount)
+		t.Fatalf("ProcessDatumAsync successCount invalid result: want [%d], got [%d]", 0, gotSuccessCount)
 	}
 	gotFailureCount := atomic.LoadUint64(tp.failureCount)
 	want := uint64(dataCount)
 	if gotFailureCount != want {
-		t.Fatalf("ProccessData failureCount invalid result: want [%d], got [%d]", want, gotFailureCount)
+		t.Fatalf("ProcessDatumAsync failureCount invalid result: want [%d], got [%d]", want, gotFailureCount)
 	}
 }
 
