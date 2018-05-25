@@ -7,4 +7,19 @@ jobs:
     steps:
       - checkout
       - run: go get -v -t -d ./...
-      - run: go test -v ./...
+  test:
+    docker:
+      - image: circleci/golang:1.10
+    steps:
+      - checkout
+      - run: go get -u github.com/mattn/goveralls
+      - run: go test -v -covermode=count -coverprofile=count.out ./...
+      - run: goveralls -coverprofile=coverage.txt -service=circle-ci -repotoken=$COVERALLS_TOKEN || true
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
