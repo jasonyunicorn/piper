@@ -1,3 +1,7 @@
+[![GoDoc](https://godoc.org/github.com/jyu617/piper?status.svg)](https://godoc.org/github.com/jyu617/piper)
+[![Circle CI](https://circleci.com/gh/jyu617/piper/tree/master.svg?style=svg&circle-token=db7ecbf336144a81e1c77ae8d9c91d820e9234c5)](https://circleci.com/gh/jyu617/piper/tree/master)
+[![Coverage Status](https://coveralls.io/repos/github/jyu617/piper/badge.svg?branch=master)](https://coveralls.io/github/jyu617/piper?branch=master)
+
 # piper
 
 Piper is a customizable data pipeline processing library written in Go.
