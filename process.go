@@ -193,6 +193,8 @@ func (p *Process) startFn(ctx context.Context) {
 		// dispatch jobs to workers as necessary
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-p.stopCh:
 				return
 			case status := <-statusCh:
@@ -225,6 +227,10 @@ func (p *Process) startFn(ctx context.Context) {
 			batch:
 				for batch.size() < p.maxBatchSize-failures {
 					select {
+					case <-ctx.Done():
+						return
+					case <-p.stopCh:
+						return
 					case <-timeout.C:
 						break batch
 					case job := <-p.jobsCh:
@@ -247,10 +253,14 @@ func (p *Process) startFn(ctx context.Context) {
 
 // stopFn defines the shutdown procedure for a Process
 func (p *Process) stopFn(ctx context.Context) {
-	// Stop Process before stopping workers
-	p.stopCh <- struct{}{}
-	for _, w := range p.workers {
-		w.exec.stop(ctx)
+	select {
+	case <-ctx.Done():
+		return
+	case p.stopCh <- struct{}{}:
+		// Stop Process before stopping workers
+		for _, w := range p.workers {
+			w.exec.stop(ctx)
+		}
 	}
 }
 

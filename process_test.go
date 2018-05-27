@@ -146,6 +146,16 @@ func TestProcess_ProcessWithOnFailureFns(t *testing.T) {
 	}
 }
 
+func TestProcess_ProcessWithWaitGroup(t *testing.T) {
+	want := &sync.WaitGroup{}
+	te := testBatchExecEvensFailFn{}
+	p := NewProcess("TestProcess", &te, ProcessWithWaitGroup(want))
+	got := p.wg
+	if want != got {
+		t.Fatalf("WaitGroup invalid: want [%v], got [%v]", want, got)
+	}
+}
+
 func TestProcess_PushOnSuccessFns(t *testing.T) {
 	fn1 := func(d DataIF) []DataIF { return []DataIF{} }
 	fn2 := func(d DataIF) []DataIF { return []DataIF{} }
@@ -170,16 +180,6 @@ func TestProcess_PushOnFailureFns(t *testing.T) {
 	}
 }
 
-func TestProcessWithWaitGroup(t *testing.T) {
-	want := &sync.WaitGroup{}
-	te := testBatchExecEvensFailFn{}
-	p := NewProcess("TestProcess", &te, ProcessWithWaitGroup(want))
-	got := p.wg
-	if want != got {
-		t.Fatalf("WaitGroup invalid: want [%v], got [%v]", want, got)
-	}
-}
-
 func TestProcess_StartStop(t *testing.T) {
 	te := testBatchExecEvensFailFn{}
 	p := NewProcess("TestProcess - Start/Stop", &te)
@@ -187,6 +187,28 @@ func TestProcess_StartStop(t *testing.T) {
 	ctx := context.TODO()
 	p.Start(ctx)
 	p.Stop(ctx)
+}
+
+func TestProcess_CancelContext1(t *testing.T) {
+	te := testBatchExecEvensFailFn{}
+	p := NewProcess("TestProcess - Cancel/Start/Stop", &te)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	p.Start(ctx)
+	p.Stop(ctx)
+}
+
+func TestProcess_CancelContext2(t *testing.T) {
+	te := testBatchExecEvensFailFn{}
+	p := NewProcess("TestProcess - Start/Cancel/Stop", &te)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	p.Start(ctx)
+	<-time.After(100 * time.Millisecond)
+	cancel()
+	p.Stop(ctx)
+
 }
 
 func TestProcess_ProcessData(t *testing.T) {

@@ -45,6 +45,9 @@ func (w *worker) startFn(ctx context.Context) {
 	work:
 		for {
 			select {
+			// Handle context cancellation
+			case <-ctx.Done():
+				break work
 			// Handle requests to stop work through the stopCh
 			case <-w.stopCh:
 				break work
@@ -64,7 +67,11 @@ func (w *worker) startFn(ctx context.Context) {
 
 // stopFn defines the shutdown procedure for a worker
 func (w *worker) stopFn(ctx context.Context) {
-	w.stopCh <- struct{}{}
-	close(w.stopCh)
-	close(w.batchCh)
+	select {
+	case <-ctx.Done():
+		return
+	case w.stopCh <- struct{}{}:
+		close(w.stopCh)
+		close(w.batchCh)
+	}
 }
