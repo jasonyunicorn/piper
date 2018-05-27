@@ -46,7 +46,7 @@ func TestPipeline_NewPipeline(t *testing.T) {
 	}
 }
 
-func TestPipelineWithWaitGroup(t *testing.T) {
+func TestPipeline_PipelineWithWaitGroup(t *testing.T) {
 	want := &sync.WaitGroup{}
 	te := testBatchExecEvensFailFn{}
 	proc1 := NewProcess("TestProcess1", &te)
