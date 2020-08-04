@@ -15,13 +15,13 @@ Piper abstracts the components of a data pipeline into chained processes, which 
 Install the piper library with the following command:
 
 ```
-go install github.com/jyu617/piper
+go install github.com/jasonyunicorn/piper
 ```
 
 Then import the piper package in your application as such:
 
 ```
-import "github.com/jyu617/piper"
+import "github.com/jasonyunicorn/piper"
 ```
 
 ### Usage
