@@ -208,7 +208,6 @@ func TestProcess_CancelContext2(t *testing.T) {
 	<-time.After(100 * time.Millisecond)
 	cancel()
 	p.Stop(ctx)
-
 }
 
 func TestProcess_ProcessData(t *testing.T) {
